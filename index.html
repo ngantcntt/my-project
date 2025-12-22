@@ -55,13 +55,15 @@
   <button onclick="loadKPI()">📈 Xem KPI (XLSX)</button>
   <div style="margin-top:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
   <label>
-    Bộ lọc:
-    <select id="filterMode" onchange="applyFilters()">
-      <option value="all">Tất cả</option>
-      <option value="ood">Chỉ OOD (bất thường)</option>
-      <option value="id">Chỉ ID (bình thường)</option>
-    </select>
-  </label>
+  Loại OOD:
+  <select id="typeMode" onchange="applyFilters()">
+    <option value="all">Tất cả</option>
+    <option value="NEW">NEW (sản phẩm mới)</option>
+    <option value="KPI">KPI (lệch KPI)</option>
+    <option value="SPIKE">SPIKE/DROP (mùa vụ/khuyến mãi)</option>
+  </select>
+</label>
+
 
   <label>
     Tìm nhanh:

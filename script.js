@@ -149,11 +149,11 @@ function addEOODScore(rows) {
     return rows.map(r => ({
       ...r,
       OOD_score: "",
-      OOD_label: "N/A (missing columns)"
+      OOD_label: "ID (in-distribution)"  // thiếu cột thì coi như ID để demo không rỗng
     }));
   }
 
-  const THRESH = 0.5; // lệch KPI > 50% => OOD (proxy entropy)
+  const THRESH = 0.5; // lệch KPI > 50% => OOD
 
   return rows.map(r => {
     const product = String(r[colProduct] || "").trim();
@@ -165,27 +165,27 @@ function addEOODScore(rows) {
     const isNew = product.toLowerCase().includes("(new)") || product.toLowerCase().includes(" new");
 
     let score = 0;
-    let reason = [];
+    let label = "ID (in-distribution)";
 
-    if (kpi && kpi > 0) {
-      score = Math.abs(revenue - kpi) / kpi;
-      if (score > THRESH) reason.push("High-entropy (KPI deviation)");
-    } else {
-      // không match KPI => uncertainty cao
-      score = isNew ? 1 : 0.7;
-      reason.push("Unknown KPI (uncertainty)");
+    // Rule 1: NEW => OOD luôn
+    if (isNew) {
+      score = 1;
+      label = "OOD: Novel product (New)";
+      return { ...r, OOD_score: score.toFixed(3), OOD_label: label };
     }
 
-    if (isNew) reason.push("Novel product (New)");
+    // Rule 2: chỉ xét lệch KPI nếu có KPI match
+    if (kpi && kpi > 0) {
+      score = Math.abs(revenue - kpi) / kpi;
+      if (score > THRESH) {
+        label = "OOD: High-entropy (KPI deviation)";
+      }
+    } else {
+      // Không có KPI match => coi là ID (để không bị OOD hàng loạt)
+      score = 0.05;
+      label = "ID (in-distribution)";
+    }
 
-    const label = (isNew || score > THRESH)
-      ? `OOD: ${reason.join(" + ")}`
-      : "ID (in-distribution)";
-
-    return {
-      ...r,
-      OOD_score: score.toFixed(3),
-      OOD_label: label
-    };
+    return { ...r, OOD_score: score.toFixed(3), OOD_label: label };
   });
 }

@@ -2,11 +2,9 @@ function normalizeHeader(s) {
   return String(s || "").trim().toLowerCase();
 }
 
-// Tìm tên cột theo nhiều cách viết khác nhau (đỡ lỗi do cột tiếng Việt)
 function findCol(headers, candidates) {
   const map = new Map();
   headers.forEach(h => map.set(normalizeHeader(h), h));
-
   for (const c of candidates) {
     const key = normalizeHeader(c);
     if (map.has(key)) return map.get(key);
@@ -14,16 +12,51 @@ function findCol(headers, candidates) {
   return null;
 }
 
+let kpiMap = new Map(); // product(lower) -> kpi revenue
+let lastSalesData = []; // lưu sales đã enrich để filter không phải load lại
+
+function isOODRow(row) {
+  return String(row["OOD_label"] || "").startsWith("OOD");
+}
+
+// ===== UI FILTER =====
+function applyFilters() {
+  if (!lastSalesData || lastSalesData.length === 0) return;
+
+  const mode = document.getElementById("filterMode")?.value || "all";
+  const q = (document.getElementById("searchBox")?.value || "").trim().toLowerCase();
+
+  let filtered = lastSalesData;
+
+  if (mode === "ood") filtered = filtered.filter(isOODRow);
+  if (mode === "id") filtered = filtered.filter(r => !isOODRow(r));
+
+  if (q) {
+    filtered = filtered.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  }
+
+  renderTable(filtered, true);
+}
+
+function resetFilters() {
+  const fm = document.getElementById("filterMode");
+  const sb = document.getElementById("searchBox");
+  if (fm) fm.value = "all";
+  if (sb) sb.value = "";
+  applyFilters();
+}
+
+// ===== RENDER TABLE (chỉ bôi đỏ OOD) =====
 function renderTable(data, highlightOOD = false) {
   if (!data || data.length === 0) {
     document.getElementById("output").innerHTML = "<p>Không có dữ liệu.</p>";
     return;
   }
 
-  const MAX_ROWS = 200;
+  const MAX_ROWS = 300; // mày có thể tăng/giảm
   const sliced = data.slice(0, MAX_ROWS);
 
-  let html = `<p><b>Hiển thị ${sliced.length} / ${data.length} dòng</b></p>`;
+  let html = `<p><b>Hiển thị ${sliced.length} / ${data.length} dòng</b> (giới hạn hiển thị ${MAX_ROWS} dòng để tránh lag)</p>`;
   html += "<table><thead><tr>";
 
   const headers = Object.keys(sliced[0]);
@@ -31,13 +64,16 @@ function renderTable(data, highlightOOD = false) {
   html += "</tr></thead><tbody>";
 
   sliced.forEach(row => {
-    const isOOD = highlightOOD && String(row["OOD_label"] || "").includes("OOD");
+    const ood = highlightOOD && isOODRow(row);
 
-    html += `<tr ${isOOD ? 'style="background:#ffe5e5;"' : ""}>`;
+    // ✅ chỉ bôi đỏ đúng dòng OOD
+    html += `<tr ${ood ? 'style="background:#ffe5e5;"' : ""}>`;
+
     headers.forEach(h => {
       const v = row[h] ?? "";
       html += `<td>${v}</td>`;
     });
+
     html += "</tr>";
   });
 
@@ -45,10 +81,7 @@ function renderTable(data, highlightOOD = false) {
   document.getElementById("output").innerHTML = html;
 }
 
-// ========== KPI LOAD (XLSX) ==========
-let kpiMap = new Map(); 
-// key: product name (lower) -> kpi revenue (number)
-
+// ===== KPI LOAD (XLSX) =====
 async function loadKPI() {
   try {
     const resp = await fetch("kpi_data.xlsx");
@@ -61,15 +94,13 @@ async function loadKPI() {
     const ws = wb.Sheets[sheetName];
     const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
-    // Tạo map KPI theo tên sản phẩm
-    // Tự dò cột tên sản phẩm + KPI doanh thu
+    // build KPI map (optional)
+    kpiMap = new Map();
     if (json.length > 0) {
       const headers = Object.keys(json[0]);
-
       const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
-      const colKPIRev = findCol(headers, ["KPI doanh thu", "kpi_doanh_thu", "doanh thu kpi", "kpi_revenue", "revenue_kpi"]);
+      const colKPIRev = findCol(headers, ["KPI doanh thu", "kpi_doanh_thu", "doanh thu kpi", "kpi_revenue", "revenue_kpi", "kpi"]);
 
-      kpiMap = new Map();
       if (colProduct && colKPIRev) {
         json.forEach(r => {
           const p = String(r[colProduct] || "").trim().toLowerCase();
@@ -79,13 +110,15 @@ async function loadKPI() {
       }
     }
 
+    // hiển thị KPI bình thường
     renderTable(json, false);
+
   } catch (e) {
     document.getElementById("output").innerHTML = "<p>Lỗi đọc KPI XLSX: " + e.message + "</p>";
   }
 }
 
-// ========== SALES LOAD (CSV) ==========
+// ===== SALES LOAD (CSV) =====
 function loadSales() {
   Papa.parse("sales_data.csv", {
     download: true,
@@ -93,8 +126,10 @@ function loadSales() {
     skipEmptyLines: true,
     complete: res => {
       const rows = (res.data || []).filter(r => Object.values(r).some(v => String(v).trim() !== ""));
-      const enriched = addEOODScore(rows);
-      renderTable(enriched, true);
+      lastSalesData = addEOODScore(rows);
+
+      // reset filter UI rồi render
+      resetFilters();
     },
     error: err => {
       document.getElementById("output").innerHTML = "<p>Lỗi đọc Sales CSV: " + err + "</p>";
@@ -102,17 +137,14 @@ function loadSales() {
   });
 }
 
-// ========== EOOD DEMO LOGIC ==========
+// ===== EOOD DEMO SCORING =====
 function addEOODScore(rows) {
   if (rows.length === 0) return rows;
 
   const headers = Object.keys(rows[0]);
-
-  // dò cột tên sản phẩm & doanh thu trong sales
   const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
   const colRevenue = findCol(headers, ["Doanh thu", "doanhthu", "revenue", "sales"]);
 
-  // nếu không thấy cột quan trọng thì vẫn trả về để khỏi crash
   if (!colProduct || !colRevenue) {
     return rows.map(r => ({
       ...r,
@@ -121,35 +153,34 @@ function addEOODScore(rows) {
     }));
   }
 
-  // ngưỡng demo: lệch KPI > 50% xem như OOD (entropy cao)
-  const THRESH = 0.5;
+  const THRESH = 0.5; // lệch KPI > 50% => OOD (proxy entropy)
 
   return rows.map(r => {
     const product = String(r[colProduct] || "").trim();
     const productKey = product.toLowerCase();
 
     const revenue = Number(String(r[colRevenue] || "0").replaceAll(",", "")) || 0;
-    const kpi = kpiMap.get(productKey); // có thể undefined
+    const kpi = kpiMap.get(productKey);
 
-    // Rule 1: sản phẩm có (New) => OOD
     const isNew = product.toLowerCase().includes("(new)") || product.toLowerCase().includes(" new");
 
-    // Rule 2: lệch KPI => entropy proxy
     let score = 0;
     let reason = [];
 
     if (kpi && kpi > 0) {
-      score = Math.abs(revenue - kpi) / kpi; // lệch tương đối
+      score = Math.abs(revenue - kpi) / kpi;
       if (score > THRESH) reason.push("High-entropy (KPI deviation)");
     } else {
-      // nếu không có KPI match, coi như bất định tăng
+      // không match KPI => uncertainty cao
       score = isNew ? 1 : 0.7;
       reason.push("Unknown KPI (uncertainty)");
     }
 
     if (isNew) reason.push("Novel product (New)");
 
-    const label = (isNew || score > THRESH) ? `OOD: ${reason.join(" + ")}` : "ID (in-distribution)";
+    const label = (isNew || score > THRESH)
+      ? `OOD: ${reason.join(" + ")}`
+      : "ID (in-distribution)";
 
     return {
       ...r,

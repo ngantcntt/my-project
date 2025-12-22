@@ -53,6 +53,24 @@
 
   <button onclick="loadSales()">📊 Xem Sales (CSV)</button>
   <button onclick="loadKPI()">📈 Xem KPI (XLSX)</button>
+  <div style="margin-top:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+  <label>
+    Bộ lọc:
+    <select id="filterMode" onchange="applyFilters()">
+      <option value="all">Tất cả</option>
+      <option value="ood">Chỉ OOD (bất thường)</option>
+      <option value="id">Chỉ ID (bình thường)</option>
+    </select>
+  </label>
+
+  <label>
+    Tìm nhanh:
+    <input id="searchBox" type="text" placeholder="nhập tên sản phẩm / tỉnh / ngành..." oninput="applyFilters()" style="padding:6px; width:280px;">
+  </label>
+
+  <button onclick="resetFilters()">Reset</button>
+</div>
+
 
   <div id="note">
   ✅ Quy tắc demo EOOD: (1) sản phẩm có “(New)” hoặc (2) doanh thu lệch KPI lớn → gắn nhãn OOD (entropy cao).

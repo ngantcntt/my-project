@@ -2,19 +2,72 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>OOD Retail Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <h1>OOD Detection – Retail Sales Demo</h1>
-  <p>Dữ liệu bán hàng & KPI (demo)</p>
+  <title>OOD Detection – Retail Sales Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <button onclick="loadSales()">Xem Sales</button>
-  <button onclick="loadKPI()">Xem KPI</button>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      background: #f4f6f9;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    button {
+      margin-right: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 20px;
+      width: 100%;
+      background: #fff;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      font-size: 13px;
+    }
+    th {
+      background: #eaeaea;
+    }
+    #note {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>OOD Detection – Retail Sales Demo</h1>
+
+  <p>
+    Demo hệ thống phát hiện dữ liệu ngoài phân phối (OOD) trong dữ liệu bán lẻ.
+    <br>
+    Dữ liệu gồm: <b>Sales (CSV)</b> và <b>KPI (XLSX)</b>
+  </p>
+
+  <button onclick="loadSales()">📊 Xem Sales (CSV)</button>
+  <button onclick="loadKPI()">📈 Xem KPI (XLSX)</button>
+
+  <div id="note">
+    ⚠️ Demo chỉ hiển thị một phần dữ liệu để đảm bảo hiệu năng trình duyệt.
+  </div>
 
   <div id="output"></div>
 
+  <!-- CSV reader -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- XLSX reader -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Main logic -->
   <script src="script.js"></script>
+
 </body>
 </html>

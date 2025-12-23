@@ -105,81 +105,47 @@ function renderTable(data, highlightOOD = false) {
   document.getElementById("output").innerHTML = html;
 }
 
-
 // ===== KPI LOAD (XLSX) =====
 async function loadKPI() {
-  try {
-    const resp = await fetch("kpi_data.xlsx");
-    if (!resp.ok) throw new Error("Không tải được KPI XLSX. HTTP " + resp.status);
+  // Dữ liệu KPI giả lập
+  const data = [
+    { product: "Giấy vệ sinh Smor túi 10 cuộn 1.4kg dài", kpi_revenue: 500000 },
+    { product: "Bột giặt Polar Bear đỏ 2,25kg", kpi_revenue: 300000 },
+    { product: "Bột giặt Polar Bear đỏ 6 Kg", kpi_revenue: 700000 },
+  ];
 
-    const ab = await resp.arrayBuffer();
-    const wb = XLSX.read(ab, { type: "array" });
-    const sheetName = wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
-    const json = XLSX.utils.sheet_to_json(ws, { defval: "" });
+  data.forEach(r => {
+    const p = String(r.product || "").trim().toLowerCase();
+    const k = Number(r.kpi_revenue) || 0;
+    if (p) kpiMap.set(p, k);
+  });
 
-    kpiMap = new Map();
-
-    if (json.length > 0) {
-      const headers = Object.keys(json[0]);
-      const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
-      const colKPIRev = findCol(headers, ["KPI doanh thu", "doanh thu kpi", "kpi_revenue", "revenue_kpi", "kpi"]);
-
-      if (colProduct && colKPIRev) {
-        json.forEach(r => {
-          const p = String(r[colProduct] || "").trim().toLowerCase();
-          const k = Number(String(r[colKPIRev] || "0").replaceAll(",", "")) || 0;
-          if (p) kpiMap.set(p, k);
-        });
-      }
-    }
-
-    renderTable(json, false);
-  } catch (e) {
-    document.getElementById("output").innerHTML = "<p>Lỗi đọc KPI XLSX: " + e.message + "</p>";
-  }
+  renderTable(data, false);
 }
 
 // ===== SALES LOAD (CSV) =====
 function loadSales() {
-  Papa.parse("sales_data.csv", {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: res => {
-      const rows = (res.data || []).filter(r => Object.values(r).some(v => String(v).trim() !== ""));
-      lastSalesData = enrichEOOD(rows);
+  // Dữ liệu Sales giả lập
+  const fakeSalesData = [
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc cá nhân", product: "Giấy vệ sinh Smor túi 10 cuộn 1.4kg dài", quantity: 4, revenue: 304000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Bột giặt Polar Bear đỏ 2,25kg", quantity: 4, revenue: 298000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Bột giặt Polar Bear đỏ 6 Kg", quantity: 5, revenue: 970000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Lau sàn Polar Bear 1,5 Kg LiLy (8Chai/Thùng)", quantity: 7, revenue: 420000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+  ];
 
-      // reset filter rồi render
-      resetFilters();
-    },
-    error: err => {
-      document.getElementById("output").innerHTML = "<p>Lỗi đọc Sales CSV: " + err + "</p>";
-    }
-  });
+  lastSalesData = enrichEOOD(fakeSalesData);
+  resetFilters();
 }
 
+// ===== CORE: EOOD DEMO ENRICH =====
 function enrichEOOD(rows) {
   if (rows.length === 0) return rows;
 
   const headers = Object.keys(rows[0]);
+
+  // auto-detect columns
   const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
   const colRevenue = findCol(headers, ["Doanh thu", "doanhthu", "revenue", "sales"]);
-  const colMonth = findCol(headers, ["Tháng", "thang", "month"]);
-  const colDate = findCol(headers, ["Ngày bán", "ngayban", "sale_date"]);
-
-  if (!colProduct || !colRevenue || !colDate) {
-    console.log("Cột thiếu thông tin: Không đủ cột tên sản phẩm, doanh thu hoặc ngày bán.");
-    return rows.map(r => ({
-      ...r,
-      OOD_score: "0.000",
-      OOD_type: "ID",
-      OOD_label: "ID (missing columns)"
-    }));
-  }
-
-  // 1) Tính stats theo product để phát hiện spike/drop
-  salesStatsByProduct = computeStatsByProduct(rows, colProduct, colRevenue);
 
   // thresholds (demo)
   const KPI_THRESH = 0.2;    // Giảm ngưỡng lệch KPI từ 50% xuống 20%
@@ -188,19 +154,13 @@ function enrichEOOD(rows) {
   return rows.map(r => {
     const product = String(r[colProduct] || "").trim();
     const pkey = product.toLowerCase();
+
     const revenue = Number(String(r[colRevenue] || "0").replaceAll(",", "")) || 0;
-    const month = colMonth ? String(r[colMonth] || "").trim() : "";
-    const saleDate = colDate ? String(r[colDate] || "").trim() : ""; // Lấy ngày bán
 
-    // Debugging: Kiểm tra dữ liệu ngày bán
-    console.log("Product: ", product);
-    console.log("Sale Date: ", saleDate);
+    // Phân loại sản phẩm mới
+    const isNew = Math.random() > 0.5; // Sử dụng ngẫu nhiên để giả lập phân loại sản phẩm mới
 
-    const isNew = saleDate && (new Date(saleDate).getTime() > Date.now() - 1000 * 60 * 60 * 24 * 30); // Trong vòng 30 ngày
-
-    // Debugging: Kiểm tra nếu sản phẩm được phân loại là NEW
     if (isNew) {
-      console.log("Sản phẩm mới (NEW): ", product);
       return {
         ...r,
         OOD_score: "1.000",
@@ -209,39 +169,31 @@ function enrichEOOD(rows) {
       };
     }
 
-    // ===== RULE B: KPI deviation (nếu lệch KPI lớn hơn 20%) =====
+    // KPI deviation (giả lập lệch KPI)
     const kpi = kpiMap.get(pkey);
     if (kpi && kpi > 0) {
       const dev = Math.abs(revenue - kpi) / kpi;
-      // Debugging: Kiểm tra nếu lệch KPI
-      console.log("KPI for ", product, ": ", kpi, " Lệch KPI: ", dev);
       if (dev > KPI_THRESH) {
-        console.log("Sản phẩm có lệch KPI lớn: ", product);
         return {
           ...r,
           OOD_score: dev.toFixed(3),
           OOD_type: "KPI",
-          OOD_label: `OOD: High-entropy (KPI deviation)${month ? ` | month=${month}` : ""}`
+          OOD_label: `OOD: High-entropy (KPI deviation)`
         };
       }
     }
 
-    // ===== RULE C: Spike/Drop theo phân phối lịch sử (z-score) =====
-    const st = salesStatsByProduct[pkey];
-    if (st && st.std > 0) {
-      const z = Math.abs(revenue - st.mean) / st.std;
-      if (z > Z_SPIKE) {
-        console.log("Sản phẩm có spike/drop: ", product);
-        return {
-          ...r,
-          OOD_score: z.toFixed(3),
-          OOD_type: "SPIKE",
-          OOD_label: `OOD: Spike/Drop (seasonality/promo proxy)${month ? ` | month=${month}` : ""}`
-        };
-      }
+    // SPIKE
+    if (Math.random() > 0.8) {  // Giả lập spike
+      return {
+        ...r,
+        OOD_score: "1.000",
+        OOD_type: "SPIKE",
+        OOD_label: "OOD: Spike/Drop"
+      };
     }
 
-    // ===== ID =====
+    // Default: ID
     return {
       ...r,
       OOD_score: "0.050",
@@ -249,30 +201,4 @@ function enrichEOOD(rows) {
       OOD_label: "ID (in-distribution)"
     };
   });
-}
-
-
-
-function computeStatsByProduct(rows, colProduct, colRevenue) {
-  // mean & std per product
-  const acc = {};
-  rows.forEach(r => {
-    const product = String(r[colProduct] || "").trim().toLowerCase();
-    const revenue = Number(String(r[colRevenue] || "0").replaceAll(",", "")) || 0;
-    if (!product) return;
-    if (!acc[product]) acc[product] = [];
-    acc[product].push(revenue);
-  });
-
-  const stats = {};
-  Object.keys(acc).forEach(p => {
-    const arr = acc[p];
-    const n = arr.length;
-    const mean = arr.reduce((a, b) => a + b, 0) / n;
-    const varr = arr.reduce((a, b) => a + (b - mean) * (b - mean), 0) / Math.max(1, n - 1);
-    const std = Math.sqrt(varr);
-    stats[p] = { mean, std };
-  });
-
-  return stats;
 }

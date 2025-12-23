@@ -159,7 +159,6 @@ function loadSales() {
   });
 }
 
-// ===== CORE: EOOD DEMO ENRICH =====
 function enrichEOOD(rows) {
   if (rows.length === 0) return rows;
 
@@ -169,10 +168,9 @@ function enrichEOOD(rows) {
   const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
   const colRevenue = findCol(headers, ["Doanh thu", "doanhthu", "revenue", "sales"]);
   const colMonth = findCol(headers, ["Tháng", "thang", "month"]);
-  const colDate = findCol(headers, ["Ngày bán", "ngayban", "sale_date"]);  // Nếu có
+  const colDate = findCol(headers, ["Ngày bán", "ngayban", "sale_date"]);
 
   if (!colProduct || !colRevenue) {
-    // fallback: không đủ cột => coi như ID
     return rows.map(r => ({
       ...r,
       OOD_score: "0.000",
@@ -185,8 +183,8 @@ function enrichEOOD(rows) {
   salesStatsByProduct = computeStatsByProduct(rows, colProduct, colRevenue);
 
   // thresholds (demo)
-  const KPI_THRESH = 0.5;    // lệch KPI 50% => OOD (KPI)
-  const Z_SPIKE = 3.0;       // z-score > 3 => OOD (SPIKE) (proxy mùa vụ/khuyến mãi)
+  const KPI_THRESH = 0.2;    // Giảm ngưỡng lệch KPI từ 50% xuống 20%
+  const Z_SPIKE = 3.0;       // z-score > 3 => OOD (SPIKE)
 
   return rows.map(r => {
     const product = String(r[colProduct] || "").trim();
@@ -196,7 +194,8 @@ function enrichEOOD(rows) {
     const month = colMonth ? String(r[colMonth] || "").trim() : "";
     const saleDate = colDate ? String(r[colDate] || "").trim() : ""; // Lấy ngày bán
 
-    const isNew = saleDate && (new Date(saleDate).getTime() > Date.now() - 1000 * 60 * 60 * 24 * 30); // Sản phẩm bán trong tháng qua (30 ngày)
+    // Phân loại sản phẩm mới
+    const isNew = saleDate && (new Date(saleDate).getTime() > Date.now() - 1000 * 60 * 60 * 24 * 30); // Trong vòng 30 ngày
 
     // ===== RULE A: NEW =====
     if (isNew) {
@@ -208,7 +207,7 @@ function enrichEOOD(rows) {
       };
     }
 
-    // ===== RULE B: KPI deviation (nếu match được KPI) =====
+    // ===== RULE B: KPI deviation (nếu lệch KPI lớn hơn 20%) =====
     const kpi = kpiMap.get(pkey);
     if (kpi && kpi > 0) {
       const dev = Math.abs(revenue - kpi) / kpi;
@@ -245,6 +244,7 @@ function enrichEOOD(rows) {
     };
   });
 }
+
 
 function computeStatsByProduct(rows, colProduct, colRevenue) {
   // mean & std per product

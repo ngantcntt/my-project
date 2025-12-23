@@ -67,14 +67,13 @@ function resetFilters() {
   applyFilters();
 }
 
-// ===== RENDER TABLE =====
 function renderTable(data, highlightOOD = false) {
   if (!data || data.length === 0) {
     document.getElementById("output").innerHTML = "<p>Không có dữ liệu.</p>";
     return;
   }
 
-  const MAX_ROWS = 300;
+  const MAX_ROWS = 50;  // Thay đổi từ 4 thành 50
   const sliced = data.slice(0, MAX_ROWS);
 
   let html = `<p><b>Hiển thị ${sliced.length} / ${data.length} dòng</b> (giới hạn ${MAX_ROWS} dòng để tránh lag)</p>`;
@@ -104,6 +103,7 @@ function renderTable(data, highlightOOD = false) {
   html += "</tbody></table>";
   document.getElementById("output").innerHTML = html;
 }
+
 
 // ===== KPI LOAD (XLSX) =====
 async function loadKPI() {

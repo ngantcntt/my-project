@@ -125,17 +125,25 @@ async function loadKPI() {
 
 // ===== SALES LOAD (CSV) =====
 function loadSales() {
-  // Dữ liệu Sales giả lập
+  // Dữ liệu Sales giả lập nhiều hơn để kiểm tra
   const fakeSalesData = [
     { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc cá nhân", product: "Giấy vệ sinh Smor túi 10 cuộn 1.4kg dài", quantity: 4, revenue: 304000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
     { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Bột giặt Polar Bear đỏ 2,25kg", quantity: 4, revenue: 298000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
     { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Bột giặt Polar Bear đỏ 6 Kg", quantity: 5, revenue: 970000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
     { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Lau sàn Polar Bear 1,5 Kg LiLy (8Chai/Thùng)", quantity: 7, revenue: 420000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc cá nhân", product: "Bột giặt Tide 2,5kg", quantity: 5, revenue: 450000, OOD_score: 1.000, OOD_type: "NEW", OOD_label: "OOD: Novelty (New product)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Nước rửa bát Sunlight 3L", quantity: 6, revenue: 600000, OOD_score: 1.000, OOD_type: "KPI", OOD_label: "OOD: High-entropy (KPI deviation)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc cá nhân", product: "Giấy vệ sinh Safeguard 10 cuộn", quantity: 3, revenue: 200000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Kem đánh răng Colgate 150g", quantity: 8, revenue: 350000, OOD_score: 1.000, OOD_type: "SPIKE", OOD_label: "OOD: Spike/Drop" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Bột giặt Omo 3kg", quantity: 7, revenue: 900000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+    { year: 2024, month: 4, region: "BD Tỉnh Lào Cai", city: "BĐH Bắc Hà - Lào Cai", category: "Chăm sóc gia đình", product: "Nước lau sàn Hương Chanh", quantity: 6, revenue: 500000, OOD_score: 0.050, OOD_type: "ID", OOD_label: "ID (in-distribution)" },
+    // Add more rows to reach 20
   ];
 
   lastSalesData = enrichEOOD(fakeSalesData);
   resetFilters();
 }
+
 
 // ===== CORE: EOOD DEMO ENRICH =====
 function enrichEOOD(rows) {

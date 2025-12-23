@@ -137,15 +137,30 @@ function loadSales() {
   resetFilters();
 }
 
-// ===== CORE: EOOD DEMO ENRICH =====
 function enrichEOOD(rows) {
   if (rows.length === 0) return rows;
 
   const headers = Object.keys(rows[0]);
 
-  // auto-detect columns
+  // auto-detect columns with correct column names based on your data
   const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
   const colRevenue = findCol(headers, ["Doanh thu", "doanhthu", "revenue", "sales"]);
+  const colMonth = findCol(headers, ["Tháng", "thang", "month"]);
+  const colDate = findCol(headers, ["Ngày bán", "ngayban", "sale_date"]); // Optional if you have a sale date
+  const colKPI = findCol(headers, ["Doanh thu kế hoạch", "kpi_revenue", "kpi"]); // KPI column
+
+  if (!colProduct || !colRevenue || !colKPI) {
+    console.log("Cột thiếu thông tin: Không đủ cột tên sản phẩm, doanh thu hoặc KPI.");
+    return rows.map(r => ({
+      ...r,
+      OOD_score: "0.000",
+      OOD_type: "ID",
+      OOD_label: "ID (missing columns)"
+    }));
+  }
+
+  // 1) Tính stats theo product để phát hiện spike/drop
+  salesStatsByProduct = computeStatsByProduct(rows, colProduct, colRevenue);
 
   // thresholds (demo)
   const KPI_THRESH = 0.2;    // Giảm ngưỡng lệch KPI từ 50% xuống 20%
@@ -156,8 +171,10 @@ function enrichEOOD(rows) {
     const pkey = product.toLowerCase();
 
     const revenue = Number(String(r[colRevenue] || "0").replaceAll(",", "")) || 0;
+    const month = colMonth ? String(r[colMonth] || "").trim() : "";
+    const kpi = kpiMap.get(pkey);
 
-    // Phân loại sản phẩm mới
+    // Phân loại sản phẩm mới (NEW)
     const isNew = Math.random() > 0.5; // Sử dụng ngẫu nhiên để giả lập phân loại sản phẩm mới
 
     if (isNew) {
@@ -170,7 +187,6 @@ function enrichEOOD(rows) {
     }
 
     // KPI deviation (giả lập lệch KPI)
-    const kpi = kpiMap.get(pkey);
     if (kpi && kpi > 0) {
       const dev = Math.abs(revenue - kpi) / kpi;
       if (dev > KPI_THRESH) {
@@ -183,7 +199,7 @@ function enrichEOOD(rows) {
       }
     }
 
-    // SPIKE
+    // SPIKE (Giả lập spike)
     if (Math.random() > 0.8) {  // Giả lập spike
       return {
         ...r,
@@ -193,7 +209,7 @@ function enrichEOOD(rows) {
       };
     }
 
-    // Default: ID
+    // Default: ID (in-distribution)
     return {
       ...r,
       OOD_score: "0.050",

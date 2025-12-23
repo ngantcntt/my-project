@@ -141,6 +141,7 @@ function enrichEOOD(rows) {
   if (rows.length === 0) return rows;
 
   const headers = Object.keys(rows[0]);
+  console.log("Headers found:", headers);  // Debugging: Xem tất cả các cột trong dữ liệu
 
   // auto-detect columns with correct column names based on your data
   const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
@@ -148,6 +149,12 @@ function enrichEOOD(rows) {
   const colMonth = findCol(headers, ["Tháng", "thang", "month"]);
   const colDate = findCol(headers, ["Ngày bán", "ngayban", "sale_date"]); // Optional if you have a sale date
   const colKPI = findCol(headers, ["Doanh thu kế hoạch", "kpi_revenue", "kpi"]); // KPI column
+
+  console.log("Product column:", colProduct);  // Debugging: Kiểm tra cột sản phẩm
+  console.log("Revenue column:", colRevenue);  // Debugging: Kiểm tra cột doanh thu
+  console.log("Month column:", colMonth);  // Debugging: Kiểm tra cột tháng
+  console.log("Date column:", colDate);  // Debugging: Kiểm tra cột ngày bán
+  console.log("KPI column:", colKPI);  // Debugging: Kiểm tra cột KPI
 
   if (!colProduct || !colRevenue || !colKPI) {
     console.log("Cột thiếu thông tin: Không đủ cột tên sản phẩm, doanh thu hoặc KPI.");

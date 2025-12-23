@@ -80,8 +80,8 @@ function renderTable(data, highlightOOD = false) {
   let html = `<p><b>Hiển thị ${sliced.length} / ${data.length} dòng</b> (giới hạn ${MAX_ROWS} dòng để tránh lag)</p>`;
   html += "<table><thead><tr>";
 
-  const headers = Object.keys(sliced[0]);
-  headers.forEach(h => (html += `<th>${h}</th>`));
+  // Ẩn các cột tên sản phẩm và chỉ hiển thị cột OOD_type và OOD_score
+  html += `<th>OOD Type</th><th>OOD Score</th>`;
   html += "</tr></thead><tbody>";
 
   sliced.forEach(row => {
@@ -89,10 +89,8 @@ function renderTable(data, highlightOOD = false) {
     const bg = ood ? rowColor(row) : "";
     html += `<tr ${bg ? `style="background:${bg};"` : ""}>`;
 
-    headers.forEach(h => {
-      const v = row[h] ?? "";
-      html += `<td>${v}</td>`;
-    });
+    // Chỉ hiển thị OOD type và OOD score
+    html += `<td>${row["OOD_type"] || ""}</td><td>${row["OOD_score"] || ""}</td>`;
 
     html += "</tr>";
   });
@@ -100,6 +98,7 @@ function renderTable(data, highlightOOD = false) {
   html += "</tbody></table>";
   document.getElementById("output").innerHTML = html;
 }
+
 
 // ===== KPI LOAD (XLSX) =====
 async function loadKPI() {

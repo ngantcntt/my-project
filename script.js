@@ -74,7 +74,7 @@ function renderTable(data, highlightOOD = false) {
     return;
   }
 
-  const MAX_ROWS = 300;
+  const MAX_ROWS = 20;
   const sliced = data.slice(0, MAX_ROWS);
 
   let html = `<p><b>Hiển thị ${sliced.length} / ${data.length} dòng</b> (giới hạn ${MAX_ROWS} dòng để tránh lag)</p>`;

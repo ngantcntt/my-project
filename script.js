@@ -99,7 +99,6 @@ function renderTable(data, highlightOOD = false) {
   document.getElementById("output").innerHTML = html;
 }
 
-
 // ===== KPI LOAD (XLSX) =====
 async function loadKPI() {
   try {
@@ -163,6 +162,7 @@ function enrichEOOD(rows) {
   const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
   const colRevenue = findCol(headers, ["Doanh thu", "doanhthu", "revenue", "sales"]);
   const colMonth = findCol(headers, ["Tháng", "thang", "month"]);
+  const colDate = findCol(headers, ["Ngày bán", "ngayban", "sale_date"]);  // Nếu có
 
   if (!colProduct || !colRevenue) {
     // fallback: không đủ cột => coi như ID
@@ -187,8 +187,9 @@ function enrichEOOD(rows) {
 
     const revenue = Number(String(r[colRevenue] || "0").replaceAll(",", "")) || 0;
     const month = colMonth ? String(r[colMonth] || "").trim() : "";
+    const saleDate = colDate ? String(r[colDate] || "").trim() : ""; // Lấy ngày bán
 
-    const isNew = product.toLowerCase().includes("(new)") || product.toLowerCase().includes(" new");
+    const isNew = saleDate && (new Date(saleDate).getTime() > Date.now() - 1000 * 60 * 60 * 24 * 30); // Sản phẩm bán trong tháng qua (30 ngày)
 
     // ===== RULE A: NEW =====
     if (isNew) {

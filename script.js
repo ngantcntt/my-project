@@ -163,14 +163,13 @@ function enrichEOOD(rows) {
   if (rows.length === 0) return rows;
 
   const headers = Object.keys(rows[0]);
-
-  // auto-detect columns
   const colProduct = findCol(headers, ["Tên sản phẩm", "ten san pham", "product", "product_name"]);
   const colRevenue = findCol(headers, ["Doanh thu", "doanhthu", "revenue", "sales"]);
   const colMonth = findCol(headers, ["Tháng", "thang", "month"]);
   const colDate = findCol(headers, ["Ngày bán", "ngayban", "sale_date"]);
 
-  if (!colProduct || !colRevenue) {
+  if (!colProduct || !colRevenue || !colDate) {
+    console.log("Cột thiếu thông tin: Không đủ cột tên sản phẩm, doanh thu hoặc ngày bán.");
     return rows.map(r => ({
       ...r,
       OOD_score: "0.000",
@@ -189,16 +188,19 @@ function enrichEOOD(rows) {
   return rows.map(r => {
     const product = String(r[colProduct] || "").trim();
     const pkey = product.toLowerCase();
-
     const revenue = Number(String(r[colRevenue] || "0").replaceAll(",", "")) || 0;
     const month = colMonth ? String(r[colMonth] || "").trim() : "";
     const saleDate = colDate ? String(r[colDate] || "").trim() : ""; // Lấy ngày bán
 
-    // Phân loại sản phẩm mới
+    // Debugging: Kiểm tra dữ liệu ngày bán
+    console.log("Product: ", product);
+    console.log("Sale Date: ", saleDate);
+
     const isNew = saleDate && (new Date(saleDate).getTime() > Date.now() - 1000 * 60 * 60 * 24 * 30); // Trong vòng 30 ngày
 
-    // ===== RULE A: NEW =====
+    // Debugging: Kiểm tra nếu sản phẩm được phân loại là NEW
     if (isNew) {
+      console.log("Sản phẩm mới (NEW): ", product);
       return {
         ...r,
         OOD_score: "1.000",
@@ -211,7 +213,10 @@ function enrichEOOD(rows) {
     const kpi = kpiMap.get(pkey);
     if (kpi && kpi > 0) {
       const dev = Math.abs(revenue - kpi) / kpi;
+      // Debugging: Kiểm tra nếu lệch KPI
+      console.log("KPI for ", product, ": ", kpi, " Lệch KPI: ", dev);
       if (dev > KPI_THRESH) {
+        console.log("Sản phẩm có lệch KPI lớn: ", product);
         return {
           ...r,
           OOD_score: dev.toFixed(3),
@@ -226,6 +231,7 @@ function enrichEOOD(rows) {
     if (st && st.std > 0) {
       const z = Math.abs(revenue - st.mean) / st.std;
       if (z > Z_SPIKE) {
+        console.log("Sản phẩm có spike/drop: ", product);
         return {
           ...r,
           OOD_score: z.toFixed(3),
@@ -244,6 +250,7 @@ function enrichEOOD(rows) {
     };
   });
 }
+
 
 
 function computeStatsByProduct(rows, colProduct, colRevenue) {
